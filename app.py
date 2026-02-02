@@ -64,7 +64,7 @@ st.title("🎬 나와 어울리는 영화는?")
 st.markdown(
     """
     간단한 질문을 통해  
-    **당신의 성향에 어울리는 영화 장르와 영화 추천**을 알려드려요 🍿✨  
+    **당신의 성향에 어울리는 영화 장르와 영화 추천**을 알려드려요 🍿✨
     """
 )
 
@@ -137,6 +137,7 @@ if st.button("🎯 결과 보기", use_container_width=True):
     main_genre = top_two[0][0]
     sub_genre = top_two[1][0]
 
+    # 분석 결과
     st.markdown("## 🧠 분석 결과")
     st.markdown(
         f"""
@@ -153,7 +154,7 @@ if st.button("🎯 결과 보기", use_container_width=True):
     )
 
     # -----------------------
-    # TMDB API 호출 (복합 장르)
+    # TMDB API (복합 장르)
     # -----------------------
     genre_ids = GENRE_INFO[main_genre]["ids"] + GENRE_INFO[sub_genre]["ids"]
     genre_query = ",".join(map(str, set(genre_ids)))
@@ -179,16 +180,12 @@ if st.button("🎯 결과 보기", use_container_width=True):
                     "https://image.tmdb.org/t/p/w500" + movie["poster_path"],
                     use_container_width=True
                 )
+            else:
+                st.caption("포스터 없음")
 
         with col2:
             st.markdown(f"### 🎬 {movie.get('title', '제목 없음')}")
             st.write(f"⭐ 평점: {movie.get('vote_average', 'N/A')}")
             st.write(movie.get("overview", "줄거리 정보가 없습니다."))
-
-            st.info(
-                f"💡 추천 이유:  \n"
-                f"이 영화는 **{main_genre}의 매력**과 "
-                f"**{sub_genre}의 분위기**를 모두 느낄 수 있어요."
-            )
 
         st.divider()

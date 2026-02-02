@@ -1,23 +1,173 @@
+# app.py
+# 실행:
+#   pip install streamlit requests
+#   streamlit run app.py
+
 import streamlit as st
 import requests
+from collections import Counter
 
-st.title("🎬 TMDB API 테스트")
+# -----------------------
+# 페이지 설정
+# -----------------------
+st.set_page_config(
+    page_title="🎬 나와 어울리는 영화는?",
+    page_icon="🎬",
+    layout="wide",
+)
 
-# 사이드바에서 API 키 입력
-TMDB_API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
+# -----------------------
+# TMDB 장르 ID 매핑
+# -----------------------
+GENRE_MAP = {
+    "로맨스/드라마": [10749, 18],
+    "액션/어드벤처": [28],
+    "SF/판타지": [878, 14],
+    "코미디": [35],
+}
 
-if TMDB_API_KEY:
-    if st.button("인기 영화 가져오기"):
-        # TMDB에서 인기 영화 가져오기
-        url = f"https://api.themoviedb.org/3/movie/popular?api_key={TMDB_API_KEY}&language=ko-KR"
-        response = requests.get(url)
-        data = response.json()
-        
-        # 첫 번째 영화 정보 출력
-        movie = data['results'][0]
-        st.write(f"🎬 제목: {movie['title']}")
-        st.write(f"⭐ 평점: {movie['vote_average']}/10")
-        st.write(f"📅 개봉일: {movie['release_date']}")
-        st.write(f"📝 줄거리: {movie['overview'][:100]}...")
-else:
-    st.info("사이드바에 TMDB API Key를 입력해주세요.")
+# -----------------------
+# 사이드바
+# -----------------------
+with st.sidebar:
+    st.header("🔑 API 설정")
+    tmdb_api_key = st.text_input(
+        "TMDB API Key",
+        type="password",
+        placeholder="TMDB API Key 입력",
+    )
+
+# -----------------------
+# 제목 & 소개
+# -----------------------
+st.title("🎬 나와 어울리는 영화는?")
+st.write(
+    "간단한 질문을 통해 **당신의 성향에 꼭 맞는 영화 장르와 추천 영화**를 알려드려요 🍿✨  \n"
+    "대학생을 위한 가벼운 심리테스트입니다."
+)
+
+st.divider()
+
+# -----------------------
+# 질문 데이터
+# -----------------------
+questions = [
+    (
+        "❓ Q1. 시험 끝난 금요일 밤, 너의 선택은?",
+        {
+            "☕ 조용한 카페에서 친구랑 깊은 얘기": "로맨스/드라마",
+            "🚗 즉흥 여행! 야간 드라이브나 액티비티": "액션/어드벤처",
+            "👽 집에서 상상력 폭발 콘텐츠 몰아보기": "SF/판타지",
+            "😂 친구들 모여 웃고 떠들기": "코미디",
+        },
+    ),
+    (
+        "❓ Q2. 과제 때문에 밤샘할 때, 너를 버티게 하는 건?",
+        {
+            "🎧 감정 몰입되는 플레이리스트": "로맨스/드라마",
+            "💪 끝내고 놀겠다는 승부욕": "액션/어드벤처",
+            "🚀 미래의 나를 상상하는 상상력": "SF/판타지",
+            "🤣 밈과 짤, 웃긴 영상": "코미디",
+        },
+    ),
+    (
+        "❓ Q3. 처음 간 MT에서 너는 어떤 캐릭터?",
+        {
+            "🌙 조용히 분위기 읽는 타입": "로맨스/드라마",
+            "🔥 게임과 레크리에이션 주도": "액션/어드벤처",
+            "🪐 독특한 세계관 만드는 사람": "SF/판타지",
+            "🎤 웃음 포인트 담당": "코미디",
+        },
+    ),
+    (
+        "❓ Q4. 스트레스가 극에 달했을 때 제일 하고 싶은 건?",
+        {
+            "😢 혼자 감정 정리하기": "로맨스/드라마",
+            "🏃‍♂️ 격하게 몸 쓰는 활동": "액션/어드벤처",
+            "🌌 현실을 잊는 다른 세계로 도피": "SF/판타지",
+            "🍻 아무 생각 없이 웃기": "코미디",
+        },
+    ),
+    (
+        "❓ Q5. 영화 주인공이 된다면, 너의 역할은?",
+        {
+            "💞 감정을 이끄는 중심 인물": "로맨스/드라마",
+            "🦸 위기마다 몸 던지는 히어로": "액션/어드벤처",
+            "🔮 세계의 비밀을 푸는 존재": "SF/판타지",
+            "😜 분위기 살리는 씬스틸러": "코미디",
+        },
+    ),
+]
+
+# -----------------------
+# 질문 UI
+# -----------------------
+answers = []
+
+for i, (question, options) in enumerate(questions):
+    choice = st.radio(
+        question,
+        list(options.keys()),
+        key=f"q{i}",
+    )
+    answers.append(options[choice])
+    st.write("")
+
+st.divider()
+
+# -----------------------
+# 결과 분석 & TMDB 연동
+# -----------------------
+if st.button("🎯 결과 보기", use_container_width=True):
+    if not tmdb_api_key:
+        st.error("⚠️ 사이드바에 TMDB API Key를 입력해주세요.")
+        st.stop()
+
+    # 1️⃣ 장르 분석
+    genre_count = Counter(answers)
+    top_genre = genre_count.most_common(1)[0][0]
+
+    st.subheader(f"🎥 당신에게 어울리는 장르: **{top_genre}**")
+
+    # 2️⃣ TMDB API 호출
+    genre_ids = GENRE_MAP[top_genre]
+    genre_query = ",".join(str(g) for g in genre_ids)
+
+    url = (
+        "https://api.themoviedb.org/3/discover/movie"
+        f"?api_key={tmdb_api_key}"
+        f"&with_genres={genre_query}"
+        "&language=ko-KR"
+        "&sort_by=popularity.desc"
+    )
+
+    response = requests.get(url)
+    data = response.json()
+
+    movies = data.get("results", [])[:5]
+
+    st.write("### 🍿 추천 영화 TOP 5")
+
+    # 3️⃣ 영화 출력
+    for movie in movies:
+        col1, col2 = st.columns([1, 3])
+
+        with col1:
+            if movie.get("poster_path"):
+                poster_url = "https://image.tmdb.org/t/p/w500" + movie["poster_path"]
+                st.image(poster_url, use_container_width=True)
+            else:
+                st.write("🎞️ 포스터 없음")
+
+        with col2:
+            st.markdown(f"### {movie.get('title', '제목 없음')}")
+            st.write(f"⭐ 평점: {movie.get('vote_average', 'N/A')}")
+            st.write(movie.get("overview", "줄거리 정보가 없습니다."))
+
+            st.info(
+                f"💡 이 영화를 추천하는 이유:  \n"
+                f"당신의 선택에서 **{top_genre}** 성향이 강하게 나타났어요!"
+            )
+
+        st.divider()
+

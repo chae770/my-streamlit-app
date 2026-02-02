@@ -1,111 +1,49 @@
 import streamlit as st
-import requests
-# 사이드바에서 API 키 입력
-API_KEY = st.sidebar.text_input("API Key", type="password")
-import streamlit as st
-import datetime
+from datetime import date
 
-# ----------------------
-# 기본 설정
-# ----------------------
-st.set_page_config(
-    page_title="습관 트래커",
-    page_icon="📅",
-    layout="wide"
-)
+st.set_page_config(page_title="AI 코칭노트")
+st.title("🏋️ AI 코칭노트")
+st.caption("훈련·컨디션 기록 및 AI 피드백")
 
-# ----------------------
-# 제목
-# ----------------------
-st.title("습관 트래커")
-st.caption("나의 습관을 기록하고 꾸준함을 시각화해보세요")
+# 세션 상태
+if "players" not in st.session_state:
+    st.session_state.players = []
+if "log" not in st.session_state:
+    st.session_state.log = None
 
-# ----------------------
-# 사이드바
-# ----------------------
-with st.sidebar:
-    st.header("설정")
+# 선수 등록
+st.sidebar.subheader("👤 선수 등록")
+name = st.sidebar.text_input("이름")
+condition = st.sidebar.selectbox("컨디션", ["좋음", "보통", "주의"])
+if st.sidebar.button("추가") and name:
+    st.session_state.players.append((name, condition))
 
-    habit_category = st.selectbox(
-        "습관 카테고리",
-        ["루틴", "학업", "운동", "기타"]
-    )
+# 훈련 기록
+st.subheader("📋 훈련 기록")
+training = st.text_area("오늘 훈련 내용")
+intensity = st.selectbox("훈련 강도", ["낮음", "중간", "높음"])
 
-    empathy_style = st.radio(
-        "AI 피드백 스타일",
-        ["공감도 MAX", "냉정하고 단호한 스타일"]
-    )
+if st.button("저장"):
+    st.session_state.log = {
+        "date": date.today(),
+        "training": training,
+        "intensity": intensity
+    }
+    st.success("훈련 기록 저장 완료!")
 
-    st.divider()
-    st.info("오늘의 습관을 기록한 후\n피드백을 받아보세요.")
+# AI 피드백 (Mock)
+if st.session_state.log:
+    st.subheader("🤖 AI 훈련 요약")
+    players = ", ".join([f"{n}({c})" for n, c in st.session_state.players])
 
-# ----------------------
-# 메인 레이아웃
-# ----------------------
-left_col, right_col = st.columns([2, 1])
+    st.markdown(f"""
+**훈련 요약**
+- 강도: {st.session_state.log['intensity']}
+- 내용: {st.session_state.log['training']}
 
-# ----------------------
-# 왼쪽: 주간 습관 체크
-# ----------------------
-with left_col:
-    st.subheader("이번 주 습관 체크")
+**선수 컨디션**
+- {players if players else "선수 정보 없음"}
 
-    today = datetime.date.today()
-    start_of_week = today - datetime.timedelta(days=today.weekday())
-
-    checked_days = {}
-
-    cols = st.columns(7)
-    for i in range(7):
-        day = start_of_week + datetime.timedelta(days=i)
-        with cols[i]:
-            st.markdown(f"**{day.strftime('%a')}**")
-            checked_days[day] = st.checkbox(
-                day.strftime("%m/%d"),
-                key=str(day)
-            )
-
-    st.divider()
-
-    habit_text = st.text_input(
-        "오늘의 습관 기록",
-        placeholder="예: 아침 스트레칭 10분"
-    )
-
-    if st.button("기록 완료"):
-        if habit_text.strip() == "":
-            st.warning("습관 내용을 입력해주세요.")
-        else:
-            st.success("습관 기록이 저장되었습니다! 🎉")
-
-# ----------------------
-# 오른쪽: AI 피드백 영역
-# ----------------------
-with right_col:
-    st.subheader("AI 피드백")
-
-    st.markdown(
-        """
-        💬 **피드백 예시**
-        - 이번 주에 꾸준히 실천하고 있어요!
-        - 하루라도 기록한 점이 정말 중요해요.
-        """
-    )
-
-    if st.button("피드백 열람"):
-        st.info(
-            f"""
-            선택한 스타일: **{empathy_style}**  
-            카테고리: **{habit_category}**
-
-            👉 여기에 AI 코치 피드백이 표시됩니다.
-            """
-        )
-
-# ----------------------
-# 하단
-# ----------------------
-st.divider()
-st.caption("© 2026 Habit Tracker Prototype")
-
-
+**보호자 공유용**
+오늘은 선수 컨디션을 고려한 훈련을 진행했습니다.
+""")

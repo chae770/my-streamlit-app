@@ -1,191 +1,165 @@
-# app.py
-# 실행:
-#   pip install streamlit requests
-#   streamlit run app.py
-
 import streamlit as st
 import requests
-from collections import Counter
 
-# -----------------------
-# 페이지 설정
-# -----------------------
 st.set_page_config(
-    page_title="🎬 나와 어울리는 영화는?",
+    page_title="나와 어울리는 영화는?",
     page_icon="🎬",
-    layout="wide",
+    layout="wide"
 )
 
-# -----------------------
-# 장르 정보
-# -----------------------
-GENRE_INFO = {
-    "로맨스/드라마": {
-        "ids": [10749, 18],
-        "emoji": "💞🎭",
-        "desc": "감정에 공감하고 관계의 흐름을 중요하게 여기는 타입"
-    },
-    "액션/어드벤처": {
-        "ids": [28],
-        "emoji": "🔥🏃‍♂️",
-        "desc": "도전과 에너지, 몰입감을 즐기는 타입"
-    },
-    "SF/판타지": {
-        "ids": [878, 14],
-        "emoji": "🚀🧙",
-        "desc": "상상력과 세계관에 빠져드는 타입"
-    },
-    "코미디": {
-        "ids": [35],
-        "emoji": "😂🎉",
-        "desc": "웃음과 분위기를 중시하는 타입"
-    },
+POSTER_URL = "https://image.tmdb.org/t/p/w500"
+
+GENRE_IDS = {
+    "로맨스": 10749,
+    "드라마": 18,
+    "액션": 28,
+    "코미디": 35,
+    "SF": 878,
+    "판타지": 14
 }
 
-# -----------------------
-# 사이드바
-# -----------------------
-with st.sidebar:
-    st.header("🔑 API 설정")
-    tmdb_api_key = st.text_input(
-        "TMDB API Key",
-        type="password",
-        placeholder="TMDB API Key 입력",
-    )
+# -------------------- SIDEBAR --------------------
+st.sidebar.markdown("## 🔑 API 설정")
+API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
 
-    st.markdown("---")
-    st.markdown("🎓 **대학생 대상 심리테스트**")
-    st.caption("결과는 재미용입니다 😄")
+st.sidebar.markdown("---")
+st.sidebar.markdown("## 🎛️ 관람 조건")
 
-# -----------------------
-# 제목 & 소개
-# -----------------------
-st.title("🎬 나와 어울리는 영화는?")
-st.markdown(
-    """
-    간단한 질문을 통해  
-    **당신의 성향에 어울리는 영화 장르와 영화 추천**을 알려드려요 🍿✨
-    """
+runtime_option = st.sidebar.radio(
+    "⏱️ 영화 길이",
+    ["상관없음", "2시간 이내", "2~3시간", "3시간 이상"]
 )
 
-st.divider()
+with_who = st.sidebar.radio(
+    "👥 함께 보는 사람",
+    ["혼자", "연인", "친구", "부모님"]
+)
 
-# -----------------------
-# 질문 데이터
-# -----------------------
+# -------------------- HERO --------------------
+st.markdown("""
+<div style="
+background: linear-gradient(135deg, #1f1c2c, #928dab);
+padding: 40px;
+border-radius: 20px;
+color: white;
+text-align: center;
+">
+<h1>🎬 나와 어울리는 영화는?</h1>
+<p style="font-size:18px;">
+MBTI 감성 심리테스트로<br>
+지금 상황에 딱 맞는 영화를 추천해드려요 🍿
+</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.write("")
+
+# -------------------- QUESTIONS --------------------
+st.markdown("## 🧠 성향 분석 테스트")
+
 questions = [
-    ("❓ Q1. 시험 끝난 금요일 밤, 너의 선택은?",
-     {
-         "☕ 조용한 카페에서 친구랑 깊은 얘기": "로맨스/드라마",
-         "🚗 즉흥 여행! 야간 드라이브나 액티비티": "액션/어드벤처",
-         "👽 집에서 상상력 폭발 콘텐츠 몰아보기": "SF/판타지",
-         "😂 친구들 모여 웃고 떠들기": "코미디",
-     }),
-    ("❓ Q2. 과제 때문에 밤샘할 때, 너를 버티게 하는 건?",
-     {
-         "🎧 감정 몰입되는 플레이리스트": "로맨스/드라마",
-         "💪 끝내고 놀겠다는 승부욕": "액션/어드벤처",
-         "🚀 미래의 나를 상상하는 상상력": "SF/판타지",
-         "🤣 밈과 짤, 웃긴 영상": "코미디",
-     }),
-    ("❓ Q3. 처음 간 MT에서 너는 어떤 캐릭터?",
-     {
-         "🌙 조용히 분위기 읽는 타입": "로맨스/드라마",
-         "🔥 게임과 레크리에이션 주도": "액션/어드벤처",
-         "🪐 독특한 세계관 만드는 사람": "SF/판타지",
-         "🎤 웃음 포인트 담당": "코미디",
-     }),
-    ("❓ Q4. 스트레스가 극에 달했을 때 제일 하고 싶은 건?",
-     {
-         "😢 혼자 감정 정리하기": "로맨스/드라마",
-         "🏃‍♂️ 격하게 몸 쓰는 활동": "액션/어드벤처",
-         "🌌 현실을 잊는 다른 세계로 도피": "SF/판타지",
-         "🍻 아무 생각 없이 웃기": "코미디",
-     }),
-    ("❓ Q5. 영화 주인공이 된다면, 너의 역할은?",
-     {
-         "💞 감정을 이끄는 중심 인물": "로맨스/드라마",
-         "🦸 위기마다 몸 던지는 히어로": "액션/어드벤처",
-         "🔮 세계의 비밀을 푸는 존재": "SF/판타지",
-         "😜 분위기 살리는 씬스틸러": "코미디",
-     }),
+    ("여행 스타일은?", {
+        "사람들과 시끌벅적": ["액션", "코미디"],
+        "혼자 조용히 힐링": ["로맨스", "드라마"]
+    }),
+    ("더 끌리는 영화는?", {
+        "현실 공감 스토리": ["드라마"],
+        "상상력 가득한 세계관": ["SF", "판타지"]
+    }),
+    ("영화에서 중요한 건?", {
+        "메시지와 주제": ["SF", "액션"],
+        "감정과 관계": ["로맨스", "드라마"]
+    }),
+    ("영화 고르는 스타일은?", {
+        "계획적으로": ["드라마"],
+        "즉흥적으로": ["코미디", "판타지"]
+    }),
+    ("스트레스 받을 때?", {
+        "감동": ["로맨스"],
+        "웃음": ["코미디"],
+        "몰입": ["SF"],
+        "짜릿함": ["액션"]
+    })
 ]
 
-# -----------------------
-# 질문 UI
-# -----------------------
-answers = []
+genre_score = {g: 0 for g in GENRE_IDS}
 
 for i, (q, opts) in enumerate(questions):
-    choice = st.radio(q, list(opts.keys()), key=f"q{i}")
-    answers.append(opts[choice])
-    st.write("")
+    choice = st.radio(f"Q{i+1}. {q}", list(opts.keys()), key=i)
+    for g in opts[choice]:
+        genre_score[g] += 2
 
-st.divider()
+# -------------------- 함께 보는 사람 보정 --------------------
+if with_who == "혼자":
+    genre_score["SF"] += 2
+    genre_score["드라마"] += 1
+elif with_who == "연인":
+    genre_score["로맨스"] += 3
+    genre_score["드라마"] += 2
+elif with_who == "친구":
+    genre_score["액션"] += 3
+    genre_score["코미디"] += 3
+elif with_who == "부모님":
+    genre_score["드라마"] += 3
+    genre_score["코미디"] += 1
 
-# -----------------------
-# 결과
-# -----------------------
-if st.button("🎯 결과 보기", use_container_width=True):
-    if not tmdb_api_key:
-        st.error("⚠️ 사이드바에 TMDB API Key를 입력해주세요.")
+# -------------------- RESULT --------------------
+st.markdown("---")
+
+if st.button("🎯 결과 보기"):
+    if not API_KEY:
+        st.warning("사이드바에 TMDB API Key를 입력해주세요.")
         st.stop()
 
-    counter = Counter(answers)
-    top_two = counter.most_common(2)
+    top_genre = max(genre_score, key=genre_score.get)
 
-    main_genre = top_two[0][0]
-    sub_genre = top_two[1][0]
+    st.markdown(f"""
+    <div style="
+    background-color:#f5f0ff;
+    padding:20px;
+    border-radius:15px;
+    text-align:center;
+    font-size:22px;
+    ">
+    ✨ 당신에게 어울리는 장르는 <b>{top_genre}</b> 입니다!
+    </div>
+    """, unsafe_allow_html=True)
 
-    # 분석 결과
-    st.markdown("## 🧠 분석 결과")
-    st.markdown(
-        f"""
-        ### {GENRE_INFO[main_genre]['emoji']} **{main_genre}**
-        {GENRE_INFO[main_genre]['desc']}
+    genre_id = GENRE_IDS[top_genre]
 
-        ### {GENRE_INFO[sub_genre]['emoji']} **{sub_genre}**
-        {GENRE_INFO[sub_genre]['desc']}
-        """
-    )
-
-    st.success(
-        f"🎯 당신은 **{main_genre} + {sub_genre}** 성향이 조합된 타입이에요!"
-    )
-
-    # -----------------------
-    # TMDB API (복합 장르)
-    # -----------------------
-    genre_ids = GENRE_INFO[main_genre]["ids"] + GENRE_INFO[sub_genre]["ids"]
-    genre_query = ",".join(map(str, set(genre_ids)))
+    runtime_query = ""
+    if runtime_option == "2시간 이내":
+        runtime_query = "&with_runtime.lte=120"
+    elif runtime_option == "2~3시간":
+        runtime_query = "&with_runtime.gte=120&with_runtime.lte=180"
+    elif runtime_option == "3시간 이상":
+        runtime_query = "&with_runtime.gte=180"
 
     url = (
-        "https://api.themoviedb.org/3/discover/movie"
-        f"?api_key={tmdb_api_key}"
-        f"&with_genres={genre_query}"
-        "&language=ko-KR"
-        "&sort_by=popularity.desc"
+        f"https://api.themoviedb.org/3/discover/movie"
+        f"?api_key={API_KEY}&language=ko-KR"
+        f"&with_genres={genre_id}"
+        f"&sort_by=popularity.desc"
+        f"{runtime_query}"
     )
 
-    movies = requests.get(url).json().get("results", [])[:5]
+    data = requests.get(url).json()
 
-    st.markdown("## 🍿 당신을 위한 영화 추천")
+    st.markdown("## 🍿 추천 영화 TOP 5")
 
-    for movie in movies:
-        col1, col2 = st.columns([1, 3])
+    for movie in data["results"][:5]:
+        col1, col2 = st.columns([1.2, 3.8])
 
         with col1:
-            if movie.get("poster_path"):
-                st.image(
-                    "https://image.tmdb.org/t/p/w500" + movie["poster_path"],
-                    use_container_width=True
-                )
-            else:
-                st.caption("포스터 없음")
+            if movie["poster_path"]:
+                st.image(POSTER_URL + movie["poster_path"], use_container_width=True)
 
         with col2:
-            st.markdown(f"### 🎬 {movie.get('title', '제목 없음')}")
-            st.write(f"⭐ 평점: {movie.get('vote_average', 'N/A')}")
-            st.write(movie.get("overview", "줄거리 정보가 없습니다."))
-
-        st.divider()
+            st.markdown(f"### 🎬 {movie['title']}")
+            st.markdown(f"⭐ **{movie['vote_average']} / 10**")
+            st.markdown(f"📅 개봉일: {movie['release_date']}")
+            st.write(movie["overview"][:180] + "...")
+            st.success(
+                f"이 영화는 **{with_who}와(과) 보기 좋고**, "
+                f"당신의 **{top_genre} 성향**과 잘 맞아요!"
+            )

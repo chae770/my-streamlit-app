@@ -1,165 +1,97 @@
 import streamlit as st
-import requests
 
+# ---------------------------
+# 기본 설정
+# ---------------------------
 st.set_page_config(
-    page_title="나와 어울리는 영화는?",
-    page_icon="🎬",
-    layout="wide"
+    page_title="습관 트래커",
+    page_icon="📊",
+    layout="centered"
 )
 
-POSTER_URL = "https://image.tmdb.org/t/p/w500"
+st.title("📊 습관 트래커")
+st.subheader("당신의 습관 성향을 알아보는 간단한 테스트")
 
-GENRE_IDS = {
-    "로맨스": 10749,
-    "드라마": 18,
-    "액션": 28,
-    "코미디": 35,
-    "SF": 878,
-    "판타지": 14
-}
-
-# -------------------- SIDEBAR --------------------
-st.sidebar.markdown("## 🔑 API 설정")
-API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("## 🎛️ 관람 조건")
-
-runtime_option = st.sidebar.radio(
-    "⏱️ 영화 길이",
-    ["상관없음", "2시간 이내", "2~3시간", "3시간 이상"]
-)
-
-with_who = st.sidebar.radio(
-    "👥 함께 보는 사람",
-    ["혼자", "연인", "친구", "부모님"]
-)
-
-# -------------------- HERO --------------------
-st.markdown("""
-<div style="
-background: linear-gradient(135deg, #1f1c2c, #928dab);
-padding: 40px;
-border-radius: 20px;
-color: white;
-text-align: center;
-">
-<h1>🎬 나와 어울리는 영화는?</h1>
-<p style="font-size:18px;">
-MBTI 감성 심리테스트로<br>
-지금 상황에 딱 맞는 영화를 추천해드려요 🍿
-</p>
-</div>
-""", unsafe_allow_html=True)
-
-st.write("")
-
-# -------------------- QUESTIONS --------------------
-st.markdown("## 🧠 성향 분석 테스트")
-
+# ---------------------------
+# 질문 데이터
+# ---------------------------
 questions = [
-    ("여행 스타일은?", {
-        "사람들과 시끌벅적": ["액션", "코미디"],
-        "혼자 조용히 힐링": ["로맨스", "드라마"]
-    }),
-    ("더 끌리는 영화는?", {
-        "현실 공감 스토리": ["드라마"],
-        "상상력 가득한 세계관": ["SF", "판타지"]
-    }),
-    ("영화에서 중요한 건?", {
-        "메시지와 주제": ["SF", "액션"],
-        "감정과 관계": ["로맨스", "드라마"]
-    }),
-    ("영화 고르는 스타일은?", {
-        "계획적으로": ["드라마"],
-        "즉흥적으로": ["코미디", "판타지"]
-    }),
-    ("스트레스 받을 때?", {
-        "감동": ["로맨스"],
-        "웃음": ["코미디"],
-        "몰입": ["SF"],
-        "짜릿함": ["액션"]
-    })
+    {
+        "question": "1. 새로운 습관을 시작할 때 당신은?",
+        "options": [
+            "계획을 철저히 세우고 시작한다",
+            "일단 해보면서 조정한다",
+            "생각만 하다가 미루는 편이다"
+        ]
+    },
+    {
+        "question": "2. 하루 일과를 기록하는 편인가요?",
+        "options": [
+            "매일 꼼꼼히 기록한다",
+            "가끔 생각날 때만 한다",
+            "거의 기록하지 않는다"
+        ]
+    },
+    {
+        "question": "3. 습관을 지키지 못했을 때 당신의 반응은?",
+        "options": [
+            "원인을 분석하고 다시 도전한다",
+            "조금 자책하지만 다시 시도한다",
+            "금방 포기해버린다"
+        ]
+    }
 ]
 
-genre_score = {g: 0 for g in GENRE_IDS}
+# ---------------------------
+# 세션 상태 초기화
+# ---------------------------
+if "current_q" not in st.session_state:
+    st.session_state.current_q = 0
 
-for i, (q, opts) in enumerate(questions):
-    choice = st.radio(f"Q{i+1}. {q}", list(opts.keys()), key=i)
-    for g in opts[choice]:
-        genre_score[g] += 2
+if "answers" not in st.session_state:
+    st.session_state.answers = []
 
-# -------------------- 함께 보는 사람 보정 --------------------
-if with_who == "혼자":
-    genre_score["SF"] += 2
-    genre_score["드라마"] += 1
-elif with_who == "연인":
-    genre_score["로맨스"] += 3
-    genre_score["드라마"] += 2
-elif with_who == "친구":
-    genre_score["액션"] += 3
-    genre_score["코미디"] += 3
-elif with_who == "부모님":
-    genre_score["드라마"] += 3
-    genre_score["코미디"] += 1
+# ---------------------------
+# 질문 화면
+# ---------------------------
+if st.session_state.current_q < len(questions):
+    q = questions[st.session_state.current_q]
 
-# -------------------- RESULT --------------------
-st.markdown("---")
+    st.progress((st.session_state.current_q + 1) / len(questions))
+    st.markdown(f"### {q['question']}")
 
-if st.button("🎯 결과 보기"):
-    if not API_KEY:
-        st.warning("사이드바에 TMDB API Key를 입력해주세요.")
-        st.stop()
-
-    top_genre = max(genre_score, key=genre_score.get)
-
-    st.markdown(f"""
-    <div style="
-    background-color:#f5f0ff;
-    padding:20px;
-    border-radius:15px;
-    text-align:center;
-    font-size:22px;
-    ">
-    ✨ 당신에게 어울리는 장르는 <b>{top_genre}</b> 입니다!
-    </div>
-    """, unsafe_allow_html=True)
-
-    genre_id = GENRE_IDS[top_genre]
-
-    runtime_query = ""
-    if runtime_option == "2시간 이내":
-        runtime_query = "&with_runtime.lte=120"
-    elif runtime_option == "2~3시간":
-        runtime_query = "&with_runtime.gte=120&with_runtime.lte=180"
-    elif runtime_option == "3시간 이상":
-        runtime_query = "&with_runtime.gte=180"
-
-    url = (
-        f"https://api.themoviedb.org/3/discover/movie"
-        f"?api_key={API_KEY}&language=ko-KR"
-        f"&with_genres={genre_id}"
-        f"&sort_by=popularity.desc"
-        f"{runtime_query}"
+    answer = st.radio(
+        "선택하세요:",
+        q["options"],
+        key=f"q_{st.session_state.current_q}"
     )
 
-    data = requests.get(url).json()
+    col1, col2 = st.columns(2)
 
-    st.markdown("## 🍿 추천 영화 TOP 5")
+    with col2:
+        if st.button("다음 ▶"):
+            st.session_state.answers.append(answer)
+            st.session_state.current_q += 1
+            st.rerun()
 
-    for movie in data["results"][:5]:
-        col1, col2 = st.columns([1.2, 3.8])
+# ---------------------------
+# 결과 화면
+# ---------------------------
+else:
+    st.success("🎉 테스트 완료!")
 
-        with col1:
-            if movie["poster_path"]:
-                st.image(POSTER_URL + movie["poster_path"], use_container_width=True)
+    st.markdown("### 📝 당신의 선택 요약")
+    for i, ans in enumerate(st.session_state.answers):
+        st.write(f"{i+1}. {ans}")
 
-        with col2:
-            st.markdown(f"### 🎬 {movie['title']}")
-            st.markdown(f"⭐ **{movie['vote_average']} / 10**")
-            st.markdown(f"📅 개봉일: {movie['release_date']}")
-            st.write(movie["overview"][:180] + "...")
-            st.success(
-                f"이 영화는 **{with_who}와(과) 보기 좋고**, "
-                f"당신의 **{top_genre} 성향**과 잘 맞아요!"
-            )
+    st.markdown("---")
+    st.markdown("### 💡 습관 성향 분석 (예시)")
+    st.write(
+        "당신은 자신의 행동을 인식하고 개선하려는 의지가 있는 타입입니다. "
+        "작은 습관부터 꾸준히 기록해보세요!"
+    )
+
+    if st.button("🔄 다시 테스트하기"):
+        st.session_state.current_q = 0
+        st.session_state.answers = []
+        st.rerun()

@@ -1,100 +1,23 @@
-# app.py
-# 실행 방법:
-#   pip install streamlit
-#   streamlit run app.py
-
 import streamlit as st
+import requests
 
-# -----------------------
-# 페이지 설정
-# -----------------------
-st.set_page_config(
-    page_title="🎬 나와 어울리는 영화는?",
-    page_icon="🎬",
-    layout="centered",
-)
+st.title("🎬 TMDB API 테스트")
 
-# -----------------------
-# 제목 & 소개
-# -----------------------
-st.title("🎬 나와 어울리는 영화는?")
-st.write(
-    "간단한 질문을 통해 **당신의 성향과 잘 어울리는 영화 장르**를 알아보세요! 🍿✨  \n"
-    "대학생을 위한 가벼운 심리테스트입니다."
-)
+# 사이드바에서 API 키 입력
+TMDB_API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
 
-st.divider()
-
-# -----------------------
-# 질문 데이터
-# -----------------------
-questions = [
-    {
-        "q": "❓ Q1. 시험 끝난 금요일 밤, 너의 선택은?",
-        "options": [
-            "☕ 조용한 카페에서 친구랑 깊은 얘기 (로맨스/드라마)",
-            "🚗 즉흥 여행! 야간 드라이브나 액티비티 (액션/어드벤처)",
-            "👽 집에서 상상력 폭발 콘텐츠 몰아보기 (SF/판타지)",
-            "😂 친구들 모여 웃고 떠들기 (코미디)",
-        ],
-    },
-    {
-        "q": "❓ Q2. 과제 때문에 밤샘할 때, 너를 버티게 하는 건?",
-        "options": [
-            "🎧 감정 몰입되는 플레이리스트 (로맨스/드라마)",
-            "💪 끝내고 놀겠다는 승부욕 (액션/어드벤처)",
-            "🚀 미래의 나를 상상하는 상상력 (SF/판타지)",
-            "🤣 밈과 짤, 웃긴 영상 (코미디)",
-        ],
-    },
-    {
-        "q": "❓ Q3. 처음 간 MT에서 너는 어떤 캐릭터?",
-        "options": [
-            "🌙 조용히 분위기 읽는 타입 (로맨스/드라마)",
-            "🔥 게임과 레크리에이션 주도 (액션/어드벤처)",
-            "🪐 독특한 세계관 만드는 사람 (SF/판타지)",
-            "🎤 웃음 포인트 담당 (코미디)",
-        ],
-    },
-    {
-        "q": "❓ Q4. 스트레스가 극에 달했을 때 제일 하고 싶은 건?",
-        "options": [
-            "😢 혼자 감정 정리하기 (로맨스/드라마)",
-            "🏃‍♂️ 격하게 몸 쓰는 활동 (액션/어드벤처)",
-            "🌌 현실을 잊는 다른 세계로 도피 (SF/판타지)",
-            "🍻 아무 생각 없이 웃기 (코미디)",
-        ],
-    },
-    {
-        "q": "❓ Q5. 영화 주인공이 된다면, 너의 역할은?",
-        "options": [
-            "💞 감정을 이끄는 중심 인물 (로맨스/드라마)",
-            "🦸 위기마다 몸 던지는 히어로 (액션/어드벤처)",
-            "🔮 세계의 비밀을 푸는 존재 (SF/판타지)",
-            "😜 분위기 살리는 씬스틸러 (코미디)",
-        ],
-    },
-]
-
-# -----------------------
-# 질문 UI
-# -----------------------
-answers = []
-
-for i, item in enumerate(questions):
-    answer = st.radio(
-        item["q"],
-        item["options"],
-        key=f"q{i}",
-    )
-    answers.append(answer)
-    st.write("")  # 여백
-
-st.divider()
-
-# -----------------------
-# 결과 버튼
-# -----------------------
-if st.button("🎯 결과 보기", use_container_width=True):
-    st.subheader("🔍 분석 중...")
-    st.write("당신의 선택을 바탕으로 결과를 분석하고 있어요 🤔✨")
+if TMDB_API_KEY:
+    if st.button("인기 영화 가져오기"):
+        # TMDB에서 인기 영화 가져오기
+        url = f"https://api.themoviedb.org/3/movie/popular?api_key={TMDB_API_KEY}&language=ko-KR"
+        response = requests.get(url)
+        data = response.json()
+        
+        # 첫 번째 영화 정보 출력
+        movie = data['results'][0]
+        st.write(f"🎬 제목: {movie['title']}")
+        st.write(f"⭐ 평점: {movie['vote_average']}/10")
+        st.write(f"📅 개봉일: {movie['release_date']}")
+        st.write(f"📝 줄거리: {movie['overview'][:100]}...")
+else:
+    st.info("사이드바에 TMDB API Key를 입력해주세요.")

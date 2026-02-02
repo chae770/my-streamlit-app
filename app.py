@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 # 사이드바에서 API 키 입력
-API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
+API_KEY = st.sidebar.text_input("API Key", type="password")
 import streamlit as st
 import datetime
 
@@ -107,4 +107,5 @@ with right_col:
 # ----------------------
 st.divider()
 st.caption("© 2026 Habit Tracker Prototype")
+
 

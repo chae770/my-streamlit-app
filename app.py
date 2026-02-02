@@ -1,97 +1,109 @@
 import streamlit as st
+import requests
+# 사이드바에서 API 키 입력
+TMDB_API_KEY = st.sidebar.text_input("TMDB API Key", type="password")
+import streamlit as st
+import datetime
 
-# ---------------------------
+# ----------------------
 # 기본 설정
-# ---------------------------
+# ----------------------
 st.set_page_config(
     page_title="습관 트래커",
-    page_icon="📊",
-    layout="centered"
+    page_icon="📅",
+    layout="wide"
 )
 
-st.title("📊 습관 트래커")
-st.subheader("당신의 습관 성향을 알아보는 간단한 테스트")
+# ----------------------
+# 제목
+# ----------------------
+st.title("습관 트래커")
+st.caption("나의 습관을 기록하고 꾸준함을 시각화해보세요")
 
-# ---------------------------
-# 질문 데이터
-# ---------------------------
-questions = [
-    {
-        "question": "1. 새로운 습관을 시작할 때 당신은?",
-        "options": [
-            "계획을 철저히 세우고 시작한다",
-            "일단 해보면서 조정한다",
-            "생각만 하다가 미루는 편이다"
-        ]
-    },
-    {
-        "question": "2. 하루 일과를 기록하는 편인가요?",
-        "options": [
-            "매일 꼼꼼히 기록한다",
-            "가끔 생각날 때만 한다",
-            "거의 기록하지 않는다"
-        ]
-    },
-    {
-        "question": "3. 습관을 지키지 못했을 때 당신의 반응은?",
-        "options": [
-            "원인을 분석하고 다시 도전한다",
-            "조금 자책하지만 다시 시도한다",
-            "금방 포기해버린다"
-        ]
-    }
-]
+# ----------------------
+# 사이드바
+# ----------------------
+with st.sidebar:
+    st.header("설정")
 
-# ---------------------------
-# 세션 상태 초기화
-# ---------------------------
-if "current_q" not in st.session_state:
-    st.session_state.current_q = 0
-
-if "answers" not in st.session_state:
-    st.session_state.answers = []
-
-# ---------------------------
-# 질문 화면
-# ---------------------------
-if st.session_state.current_q < len(questions):
-    q = questions[st.session_state.current_q]
-
-    st.progress((st.session_state.current_q + 1) / len(questions))
-    st.markdown(f"### {q['question']}")
-
-    answer = st.radio(
-        "선택하세요:",
-        q["options"],
-        key=f"q_{st.session_state.current_q}"
+    habit_category = st.selectbox(
+        "습관 카테고리",
+        ["루틴", "학업", "운동", "기타"]
     )
 
-    col1, col2 = st.columns(2)
-
-    with col2:
-        if st.button("다음 ▶"):
-            st.session_state.answers.append(answer)
-            st.session_state.current_q += 1
-            st.rerun()
-
-# ---------------------------
-# 결과 화면
-# ---------------------------
-else:
-    st.success("🎉 테스트 완료!")
-
-    st.markdown("### 📝 당신의 선택 요약")
-    for i, ans in enumerate(st.session_state.answers):
-        st.write(f"{i+1}. {ans}")
-
-    st.markdown("---")
-    st.markdown("### 💡 습관 성향 분석 (예시)")
-    st.write(
-        "당신은 자신의 행동을 인식하고 개선하려는 의지가 있는 타입입니다. "
-        "작은 습관부터 꾸준히 기록해보세요!"
+    empathy_style = st.radio(
+        "AI 피드백 스타일",
+        ["공감도 MAX", "냉정하고 단호한 스타일"]
     )
 
-    if st.button("🔄 다시 테스트하기"):
-        st.session_state.current_q = 0
-        st.session_state.answers = []
-        st.rerun()
+    st.divider()
+    st.info("오늘의 습관을 기록한 후\n피드백을 받아보세요.")
+
+# ----------------------
+# 메인 레이아웃
+# ----------------------
+left_col, right_col = st.columns([2, 1])
+
+# ----------------------
+# 왼쪽: 주간 습관 체크
+# ----------------------
+with left_col:
+    st.subheader("이번 주 습관 체크")
+
+    today = datetime.date.today()
+    start_of_week = today - datetime.timedelta(days=today.weekday())
+
+    checked_days = {}
+
+    cols = st.columns(7)
+    for i in range(7):
+        day = start_of_week + datetime.timedelta(days=i)
+        with cols[i]:
+            st.markdown(f"**{day.strftime('%a')}**")
+            checked_days[day] = st.checkbox(
+                day.strftime("%m/%d"),
+                key=str(day)
+            )
+
+    st.divider()
+
+    habit_text = st.text_input(
+        "오늘의 습관 기록",
+        placeholder="예: 아침 스트레칭 10분"
+    )
+
+    if st.button("기록 완료"):
+        if habit_text.strip() == "":
+            st.warning("습관 내용을 입력해주세요.")
+        else:
+            st.success("습관 기록이 저장되었습니다! 🎉")
+
+# ----------------------
+# 오른쪽: AI 피드백 영역
+# ----------------------
+with right_col:
+    st.subheader("AI 피드백")
+
+    st.markdown(
+        """
+        💬 **피드백 예시**
+        - 이번 주에 꾸준히 실천하고 있어요!
+        - 하루라도 기록한 점이 정말 중요해요.
+        """
+    )
+
+    if st.button("피드백 열람"):
+        st.info(
+            f"""
+            선택한 스타일: **{empathy_style}**  
+            카테고리: **{habit_category}**
+
+            👉 여기에 AI 코치 피드백이 표시됩니다.
+            """
+        )
+
+# ----------------------
+# 하단
+# ----------------------
+st.divider()
+st.caption("© 2026 Habit Tracker Prototype")

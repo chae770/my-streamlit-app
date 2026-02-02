@@ -17,29 +17,13 @@ st.set_page_config(
 )
 
 # -----------------------
-# 장르 정보
+# TMDB 장르 ID 매핑
 # -----------------------
-GENRE_INFO = {
-    "로맨스/드라마": {
-        "ids": [10749, 18],
-        "emoji": "💞🎭",
-        "desc": "감정에 공감하고 관계의 흐름을 중요하게 여기는 타입"
-    },
-    "액션/어드벤처": {
-        "ids": [28],
-        "emoji": "🔥🏃‍♂️",
-        "desc": "도전과 에너지, 몰입감을 즐기는 타입"
-    },
-    "SF/판타지": {
-        "ids": [878, 14],
-        "emoji": "🚀🧙",
-        "desc": "상상력과 세계관에 빠져드는 타입"
-    },
-    "코미디": {
-        "ids": [35],
-        "emoji": "😂🎉",
-        "desc": "웃음과 분위기를 중시하는 타입"
-    },
+GENRE_MAP = {
+    "로맨스/드라마": [10749, 18],
+    "액션/어드벤처": [28],
+    "SF/판타지": [878, 14],
+    "코미디": [35],
 }
 
 # -----------------------
@@ -53,19 +37,13 @@ with st.sidebar:
         placeholder="TMDB API Key 입력",
     )
 
-    st.markdown("---")
-    st.markdown("🎓 **대학생 대상 심리테스트**")
-    st.caption("결과는 재미용입니다 😄")
-
 # -----------------------
 # 제목 & 소개
 # -----------------------
 st.title("🎬 나와 어울리는 영화는?")
-st.markdown(
-    """
-    간단한 질문을 통해  
-    **당신의 성향에 어울리는 영화 장르와 영화 추천**을 알려드려요 🍿✨  
-    """
+st.write(
+    "간단한 질문을 통해 **당신의 성향에 꼭 맞는 영화 장르와 추천 영화**를 알려드려요 🍿✨  \n"
+    "대학생을 위한 가벼운 심리테스트입니다."
 )
 
 st.divider()
@@ -74,41 +52,51 @@ st.divider()
 # 질문 데이터
 # -----------------------
 questions = [
-    ("❓ Q1. 시험 끝난 금요일 밤, 너의 선택은?",
-     {
-         "☕ 조용한 카페에서 친구랑 깊은 얘기": "로맨스/드라마",
-         "🚗 즉흥 여행! 야간 드라이브나 액티비티": "액션/어드벤처",
-         "👽 집에서 상상력 폭발 콘텐츠 몰아보기": "SF/판타지",
-         "😂 친구들 모여 웃고 떠들기": "코미디",
-     }),
-    ("❓ Q2. 과제 때문에 밤샘할 때, 너를 버티게 하는 건?",
-     {
-         "🎧 감정 몰입되는 플레이리스트": "로맨스/드라마",
-         "💪 끝내고 놀겠다는 승부욕": "액션/어드벤처",
-         "🚀 미래의 나를 상상하는 상상력": "SF/판타지",
-         "🤣 밈과 짤, 웃긴 영상": "코미디",
-     }),
-    ("❓ Q3. 처음 간 MT에서 너는 어떤 캐릭터?",
-     {
-         "🌙 조용히 분위기 읽는 타입": "로맨스/드라마",
-         "🔥 게임과 레크리에이션 주도": "액션/어드벤처",
-         "🪐 독특한 세계관 만드는 사람": "SF/판타지",
-         "🎤 웃음 포인트 담당": "코미디",
-     }),
-    ("❓ Q4. 스트레스가 극에 달했을 때 제일 하고 싶은 건?",
-     {
-         "😢 혼자 감정 정리하기": "로맨스/드라마",
-         "🏃‍♂️ 격하게 몸 쓰는 활동": "액션/어드벤처",
-         "🌌 현실을 잊는 다른 세계로 도피": "SF/판타지",
-         "🍻 아무 생각 없이 웃기": "코미디",
-     }),
-    ("❓ Q5. 영화 주인공이 된다면, 너의 역할은?",
-     {
-         "💞 감정을 이끄는 중심 인물": "로맨스/드라마",
-         "🦸 위기마다 몸 던지는 히어로": "액션/어드벤처",
-         "🔮 세계의 비밀을 푸는 존재": "SF/판타지",
-         "😜 분위기 살리는 씬스틸러": "코미디",
-     }),
+    (
+        "❓ Q1. 시험 끝난 금요일 밤, 너의 선택은?",
+        {
+            "☕ 조용한 카페에서 친구랑 깊은 얘기": "로맨스/드라마",
+            "🚗 즉흥 여행! 야간 드라이브나 액티비티": "액션/어드벤처",
+            "👽 집에서 상상력 폭발 콘텐츠 몰아보기": "SF/판타지",
+            "😂 친구들 모여 웃고 떠들기": "코미디",
+        },
+    ),
+    (
+        "❓ Q2. 과제 때문에 밤샘할 때, 너를 버티게 하는 건?",
+        {
+            "🎧 감정 몰입되는 플레이리스트": "로맨스/드라마",
+            "💪 끝내고 놀겠다는 승부욕": "액션/어드벤처",
+            "🚀 미래의 나를 상상하는 상상력": "SF/판타지",
+            "🤣 밈과 짤, 웃긴 영상": "코미디",
+        },
+    ),
+    (
+        "❓ Q3. 처음 간 MT에서 너는 어떤 캐릭터?",
+        {
+            "🌙 조용히 분위기 읽는 타입": "로맨스/드라마",
+            "🔥 게임과 레크리에이션 주도": "액션/어드벤처",
+            "🪐 독특한 세계관 만드는 사람": "SF/판타지",
+            "🎤 웃음 포인트 담당": "코미디",
+        },
+    ),
+    (
+        "❓ Q4. 스트레스가 극에 달했을 때 제일 하고 싶은 건?",
+        {
+            "😢 혼자 감정 정리하기": "로맨스/드라마",
+            "🏃‍♂️ 격하게 몸 쓰는 활동": "액션/어드벤처",
+            "🌌 현실을 잊는 다른 세계로 도피": "SF/판타지",
+            "🍻 아무 생각 없이 웃기": "코미디",
+        },
+    ),
+    (
+        "❓ Q5. 영화 주인공이 된다면, 너의 역할은?",
+        {
+            "💞 감정을 이끄는 중심 인물": "로맨스/드라마",
+            "🦸 위기마다 몸 던지는 히어로": "액션/어드벤처",
+            "🔮 세계의 비밀을 푸는 존재": "SF/판타지",
+            "😜 분위기 살리는 씬스틸러": "코미디",
+        },
+    ),
 ]
 
 # -----------------------
@@ -116,47 +104,34 @@ questions = [
 # -----------------------
 answers = []
 
-for i, (q, opts) in enumerate(questions):
-    choice = st.radio(q, list(opts.keys()), key=f"q{i}")
-    answers.append(opts[choice])
+for i, (question, options) in enumerate(questions):
+    choice = st.radio(
+        question,
+        list(options.keys()),
+        key=f"q{i}",
+    )
+    answers.append(options[choice])
     st.write("")
 
 st.divider()
 
 # -----------------------
-# 결과
+# 결과 분석 & TMDB 연동
 # -----------------------
 if st.button("🎯 결과 보기", use_container_width=True):
     if not tmdb_api_key:
         st.error("⚠️ 사이드바에 TMDB API Key를 입력해주세요.")
         st.stop()
 
-    counter = Counter(answers)
-    top_two = counter.most_common(2)
+    # 1️⃣ 장르 분석
+    genre_count = Counter(answers)
+    top_genre = genre_count.most_common(1)[0][0]
 
-    main_genre = top_two[0][0]
-    sub_genre = top_two[1][0]
+    st.subheader(f"🎥 당신에게 어울리는 장르: **{top_genre}**")
 
-    st.markdown("## 🧠 분석 결과")
-    st.markdown(
-        f"""
-        ### {GENRE_INFO[main_genre]['emoji']} **{main_genre}**
-        {GENRE_INFO[main_genre]['desc']}
-
-        ### {GENRE_INFO[sub_genre]['emoji']} **{sub_genre}**
-        {GENRE_INFO[sub_genre]['desc']}
-        """
-    )
-
-    st.success(
-        f"🎯 당신은 **{main_genre} + {sub_genre}** 성향이 조합된 타입이에요!"
-    )
-
-    # -----------------------
-    # TMDB API 호출 (복합 장르)
-    # -----------------------
-    genre_ids = GENRE_INFO[main_genre]["ids"] + GENRE_INFO[sub_genre]["ids"]
-    genre_query = ",".join(map(str, set(genre_ids)))
+    # 2️⃣ TMDB API 호출
+    genre_ids = GENRE_MAP[top_genre]
+    genre_query = ",".join(str(g) for g in genre_ids)
 
     url = (
         "https://api.themoviedb.org/3/discover/movie"
@@ -166,29 +141,32 @@ if st.button("🎯 결과 보기", use_container_width=True):
         "&sort_by=popularity.desc"
     )
 
-    movies = requests.get(url).json().get("results", [])[:5]
+    response = requests.get(url)
+    data = response.json()
 
-    st.markdown("## 🍿 당신을 위한 영화 추천")
+    movies = data.get("results", [])[:5]
 
+    st.write("### 🍿 추천 영화 TOP 5")
+
+    # 3️⃣ 영화 출력
     for movie in movies:
         col1, col2 = st.columns([1, 3])
 
         with col1:
             if movie.get("poster_path"):
-                st.image(
-                    "https://image.tmdb.org/t/p/w500" + movie["poster_path"],
-                    use_container_width=True
-                )
+                poster_url = "https://image.tmdb.org/t/p/w500" + movie["poster_path"]
+                st.image(poster_url, use_container_width=True)
+            else:
+                st.write("🎞️ 포스터 없음")
 
         with col2:
-            st.markdown(f"### 🎬 {movie.get('title', '제목 없음')}")
+            st.markdown(f"### {movie.get('title', '제목 없음')}")
             st.write(f"⭐ 평점: {movie.get('vote_average', 'N/A')}")
             st.write(movie.get("overview", "줄거리 정보가 없습니다."))
 
             st.info(
-                f"💡 추천 이유:  \n"
-                f"이 영화는 **{main_genre}의 매력**과 "
-                f"**{sub_genre}의 분위기**를 모두 느낄 수 있어요."
+                f"💡 이 영화를 추천하는 이유:  \n"
+                f"당신의 선택에서 **{top_genre}** 성향이 강하게 나타났어요!"
             )
 
         st.divider()

@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import calendar
+from openai import OpenAI
 
 # ----------------------
 # 기본 설정
@@ -8,23 +9,21 @@ import calendar
 st.set_page_config(page_title="습관 트래커", page_icon="📅", layout="wide")
 
 st.title("습관 트래커")
-st.caption("2월 달력에서 날짜별로 습관을 기록하고 피드백을 받아보세요.")
+st.caption("2월 달력에서 날짜별로 습관을 기록하고 AI 피드백을 받아보세요.")
 
 # ----------------------
-# 유틸: 2월 달력 생성 (Sunday 시작)
+# 날짜 / 달력 설정
 # ----------------------
 today = datetime.date.today()
 year = today.year
 month = 2  # 2월 고정
 
-cal = calendar.Calendar(firstweekday=6)  # 🔥 Sunday 시작
+cal = calendar.Calendar(firstweekday=6)  # Sunday 시작
 month_days = list(cal.itermonthdates(year, month))
-
-# 주 단위로 자르기 (7일씩)
 weeks = [month_days[i:i + 7] for i in range(0, len(month_days), 7)]
 
 # ----------------------
-# 세션 상태: 날짜별 기록 저장
+# 세션 상태
 # ----------------------
 if "records" not in st.session_state:
     st.session_state.records = {}
@@ -38,7 +37,13 @@ if "selected_date" not in st.session_state:
 # 사이드바
 # ----------------------
 with st.sidebar:
-    st.header("설정")
+    st.header("🔧 설정")
+
+    api_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        placeholder="sk-..."
+    )
 
     habit_category = st.selectbox(
         "습관 카테고리", ["루틴", "학업", "운동", "기타"]
@@ -50,7 +55,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.info("📅 2월 달력에서 날짜를 클릭해 습관을 기록하세요.")
+    st.caption("🔑 API Key는 로컬에서만 사용됩니다.")
 
 # ----------------------
 # 메인 레이아웃
@@ -58,39 +63,35 @@ with st.sidebar:
 left_col, right_col = st.columns([2.2, 1])
 
 # ----------------------
-# 왼쪽: 2월 달력 (Sunday → Saturday)
+# 왼쪽: 달력
 # ----------------------
 with left_col:
     st.subheader(f"{year}년 2월")
 
-    # 요일 헤더
     headers = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    header_cols = st.columns(7)
+    cols = st.columns(7)
     for i, h in enumerate(headers):
-        header_cols[i].markdown(f"**{h}**")
+        cols[i].markdown(f"**{h}**")
 
     selected_date = None
 
-    # 달력 그리드
     for week in weeks:
-        row_cols = st.columns(7)
+        row = st.columns(7)
         for i, day in enumerate(week):
             if day.month != month:
-                row_cols[i].markdown(" ")
+                row[i].markdown(" ")
                 continue
 
             key = day.isoformat()
             record = st.session_state.records.get(key, {})
-            has_text = record.get("text", "").strip() != ""
-            done = record.get("done", False)
+            label = str(day.day)
 
-            label = f"{day.day}"
-            if has_text:
+            if record.get("text"):
                 label += " 📝"
-            if done:
+            if record.get("done"):
                 label += " ✅"
 
-            if row_cols[i].button(label, key=f"btn_{key}"):
+            if row[i].button(label, key=f"btn_{key}"):
                 selected_date = day
 
     if selected_date:
@@ -100,18 +101,21 @@ with left_col:
 
     sel = st.session_state.selected_date
     sel_key = sel.isoformat()
+    existing = st.session_state.records.get(sel_key, {})
 
     st.markdown(f"### 📌 {sel.strftime('%Y-%m-%d')} 기록")
 
-    existing = st.session_state.records.get(sel_key, {})
     text = st.text_area(
         "습관 기록",
         value=existing.get("text", ""),
-        placeholder="예: 영어 단어 30개 / 스트레칭 10분",
+        placeholder="예: 스트레칭 10분, 영어 단어 30개",
         height=120
     )
 
-    done = st.checkbox("오늘 기록 완료", value=existing.get("done", False))
+    done = st.checkbox(
+        "오늘 기록 완료",
+        value=existing.get("done", False)
+    )
 
     c1, c2 = st.columns(2)
     with c1:
@@ -121,7 +125,7 @@ with left_col:
                 "done": done,
                 "category": habit_category
             }
-            st.success("저장되었습니다! 🎉")
+            st.success("저장되었습니다!")
 
     with c2:
         if st.button("삭제", use_container_width=True):
@@ -132,7 +136,7 @@ with left_col:
 # 오른쪽: AI 피드백
 # ----------------------
 with right_col:
-    st.subheader("AI 피드백")
+    st.subheader("🤖 AI 피드백")
 
     sel = st.session_state.selected_date
     sel_key = sel.isoformat()
@@ -143,30 +147,50 @@ with right_col:
     st.markdown(f"**스타일:** {empathy_style}")
     st.divider()
 
-    if record.get("text", "").strip() == "":
+    if not record.get("text"):
         st.info("이 날짜에는 아직 기록이 없어요.")
+    elif not api_key:
+        st.warning("사이드바에 OpenAI API Key를 입력해주세요.")
     else:
-        st.markdown("**기록 내용**")
-        st.write(record.get("text"))
-        st.markdown(
-            f"**완료 여부:** {'✅ 완료' if record.get('done') else '⬜ 미완료'}"
-        )
+        if st.button("피드백 생성", use_container_width=True):
+            with st.spinner("AI 코치가 피드백을 작성 중입니다..."):
+                try:
+                    client = OpenAI(api_key=api_key)
 
-        if st.button("피드백 열람", use_container_width=True):
-            if empathy_style == "공감도 Max":
-                feedback = (
-                    "오늘도 스스로를 챙기려는 선택을 했다는 점이 정말 멋져요 🌱\n\n"
-                    "완벽하지 않아도 괜찮아요. 기록을 남겼다는 사실 자체가 이미 성장입니다."
-                )
-            else:
-                feedback = (
-                    "기록은 했습니다.\n\n"
-                    "하지만 완료 체크가 없다면 실행으로 보지 않습니다.\n"
-                    "내일은 목표를 더 작게 설정하고 반드시 완료하세요."
-                )
+                    system_prompt = (
+                        "당신은 습관 트래커 앱의 AI 코치입니다. "
+                        "사용자의 습관 기록에 대해 피드백을 제공합니다."
+                    )
 
-            st.success("AI 피드백 (샘플)")
-            st.write(feedback)
+                    style_prompt = (
+                        "공감과 위로를 최우선으로 하세요."
+                        if empathy_style == "공감도 Max"
+                        else "감정은 배제하고 객관적이며 단호하게 피드백하세요."
+                    )
+
+                    user_prompt = f"""
+                    날짜: {sel}
+                    카테고리: {record.get('category')}
+                    습관 기록: {record.get('text')}
+                    완료 여부: {"완료" if record.get("done") else "미완료"}
+
+                    피드백 스타일: {style_prompt}
+                    """
+
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        temperature=0.8
+                    )
+
+                    st.success("AI 피드백")
+                    st.write(response.choices[0].message.content)
+
+                except Exception as e:
+                    st.error(f"에러 발생: {e}")
 
 # ----------------------
 # 하단 요약

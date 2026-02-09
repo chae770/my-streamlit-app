@@ -11,24 +11,28 @@ st.title("습관 트래커")
 st.caption("2월 달력에서 날짜별로 습관을 기록하고 피드백을 받아보세요.")
 
 # ----------------------
-# 유틸: 2월 달력 생성 (현재 연도 기준)
+# 유틸: 2월 달력 생성 (Sunday 시작)
 # ----------------------
 today = datetime.date.today()
 year = today.year
 month = 2  # 2월 고정
 
-cal = calendar.Calendar(firstweekday=0)  # 월요일 시작(0=월)
+cal = calendar.Calendar(firstweekday=6)  # 🔥 Sunday 시작
 month_days = list(cal.itermonthdates(year, month))
 
-# 2월만 필터 + 주 단위(7개씩)로 자르기
-only_month_days = [d for d in month_days if d.month == month]
-weeks = [only_month_days[i:i+7] for i in range(0, len(only_month_days), 7)]
+# 주 단위로 자르기 (7일씩)
+weeks = [month_days[i:i + 7] for i in range(0, len(month_days), 7)]
 
 # ----------------------
 # 세션 상태: 날짜별 기록 저장
 # ----------------------
 if "records" not in st.session_state:
-    st.session_state.records = {}  # { "YYYY-MM-DD": {"text": "...", "done": bool} }
+    st.session_state.records = {}
+
+if "selected_date" not in st.session_state:
+    st.session_state.selected_date = (
+        today if today.month == 2 else datetime.date(year, 2, 1)
+    )
 
 # ----------------------
 # 사이드바
@@ -36,7 +40,9 @@ if "records" not in st.session_state:
 with st.sidebar:
     st.header("설정")
 
-    habit_category = st.selectbox("습관 카테고리", ["루틴", "학업", "운동", "기타"])
+    habit_category = st.selectbox(
+        "습관 카테고리", ["루틴", "학업", "운동", "기타"]
+    )
 
     empathy_style = st.radio(
         "AI 피드백 스타일",
@@ -44,91 +50,86 @@ with st.sidebar:
     )
 
     st.divider()
-    st.write("📌 2월 달력에서 날짜를 눌러 기록을 남겨보세요.")
+    st.info("📅 2월 달력에서 날짜를 클릭해 습관을 기록하세요.")
 
 # ----------------------
-# 레이아웃
+# 메인 레이아웃
 # ----------------------
 left_col, right_col = st.columns([2.2, 1])
 
 # ----------------------
-# 왼쪽: 2월 달력(메인)
+# 왼쪽: 2월 달력 (Sunday → Saturday)
 # ----------------------
 with left_col:
-    st.subheader(f"{year}년 2월 달력")
+    st.subheader(f"{year}년 2월")
 
     # 요일 헤더
+    headers = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     header_cols = st.columns(7)
-    for i, wd in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-        header_cols[i].markdown(f"**{wd}**")
+    for i, h in enumerate(headers):
+        header_cols[i].markdown(f"**{h}**")
 
-    # 달력 그리드
     selected_date = None
 
-    for w in weeks:
+    # 달력 그리드
+    for week in weeks:
         row_cols = st.columns(7)
-        for i, d in enumerate(w):
-            key = d.isoformat()
-            has_record = key in st.session_state.records and st.session_state.records[key].get("text", "").strip() != ""
-            done = st.session_state.records.get(key, {}).get("done", False)
+        for i, day in enumerate(week):
+            if day.month != month:
+                row_cols[i].markdown(" ")
+                continue
 
-            label = f"{d.day}"
-            if has_record:
+            key = day.isoformat()
+            record = st.session_state.records.get(key, {})
+            has_text = record.get("text", "").strip() != ""
+            done = record.get("done", False)
+
+            label = f"{day.day}"
+            if has_text:
                 label += " 📝"
             if done:
                 label += " ✅"
 
-            # 날짜 버튼
             if row_cols[i].button(label, key=f"btn_{key}"):
-                selected_date = d
+                selected_date = day
+
+    if selected_date:
+        st.session_state.selected_date = selected_date
 
     st.divider()
-
-    # 기본 선택 날짜: 오늘이 2월이면 오늘, 아니면 2월 1일
-    if "selected_date" not in st.session_state:
-        if today.month == 2:
-            st.session_state.selected_date = today
-        else:
-            st.session_state.selected_date = datetime.date(year, 2, 1)
-
-    # 버튼 클릭으로 선택된 날짜 반영
-    if selected_date is not None:
-        st.session_state.selected_date = selected_date
 
     sel = st.session_state.selected_date
     sel_key = sel.isoformat()
 
-    # 선택 날짜 기록 UI
     st.markdown(f"### 📌 {sel.strftime('%Y-%m-%d')} 기록")
 
-    # 불러오기
-    existing_text = st.session_state.records.get(sel_key, {}).get("text", "")
-    existing_done = st.session_state.records.get(sel_key, {}).get("done", False)
-
+    existing = st.session_state.records.get(sel_key, {})
     text = st.text_area(
         "습관 기록",
-        value=existing_text,
-        placeholder="예: 아침 스트레칭 10분 / 영어 단어 30개",
+        value=existing.get("text", ""),
+        placeholder="예: 영어 단어 30개 / 스트레칭 10분",
         height=120
     )
 
-    done = st.checkbox("오늘 기록 완료(체크)", value=existing_done)
+    done = st.checkbox("오늘 기록 완료", value=existing.get("done", False))
 
     c1, c2 = st.columns(2)
-
     with c1:
         if st.button("저장", use_container_width=True):
-            st.session_state.records[sel_key] = {"text": text, "done": done, "category": habit_category}
+            st.session_state.records[sel_key] = {
+                "text": text,
+                "done": done,
+                "category": habit_category
+            }
             st.success("저장되었습니다! 🎉")
 
     with c2:
         if st.button("삭제", use_container_width=True):
-            if sel_key in st.session_state.records:
-                del st.session_state.records[sel_key]
+            st.session_state.records.pop(sel_key, None)
             st.warning("삭제되었습니다.")
 
 # ----------------------
-# 오른쪽: AI 피드백 영역
+# 오른쪽: AI 피드백
 # ----------------------
 with right_col:
     st.subheader("AI 피드백")
@@ -136,50 +137,46 @@ with right_col:
     sel = st.session_state.selected_date
     sel_key = sel.isoformat()
     record = st.session_state.records.get(sel_key, {})
-    record_text = record.get("text", "").strip()
-    record_done = record.get("done", False)
-    record_cat = record.get("category", habit_category)
 
-    st.markdown(f"**선택 날짜:** {sel.strftime('%Y-%m-%d')}")
-    st.markdown(f"**카테고리:** {record_cat}")
+    st.markdown(f"**날짜:** {sel.strftime('%Y-%m-%d')}")
+    st.markdown(f"**카테고리:** {record.get('category', habit_category)}")
     st.markdown(f"**스타일:** {empathy_style}")
     st.divider()
 
-    if record_text == "":
-        st.info("아직 이 날짜에 기록이 없어요. 왼쪽에서 날짜별 기록을 작성해 주세요.")
+    if record.get("text", "").strip() == "":
+        st.info("이 날짜에는 아직 기록이 없어요.")
     else:
         st.markdown("**기록 내용**")
-        st.write(record_text)
-        st.markdown(f"**완료 체크:** {'✅ 완료' if record_done else '⬜ 미완료'}")
+        st.write(record.get("text"))
+        st.markdown(
+            f"**완료 여부:** {'✅ 완료' if record.get('done') else '⬜ 미완료'}"
+        )
 
         if st.button("피드백 열람", use_container_width=True):
-            # 현재는 UI 프로토타입용 더미 피드백
             if empathy_style == "공감도 Max":
-                msg = (
-                    "정말 잘하고 있어요! 🌿\n\n"
-                    "오늘 기록을 남긴 것 자체가 큰 성취예요.\n"
-                    "완료 여부와 상관없이, 꾸준히 돌아오는 습관이 당신을 변화시켜요. "
-                    "내일도 부담 없이 한 걸음만 같이 가볼까요?"
+                feedback = (
+                    "오늘도 스스로를 챙기려는 선택을 했다는 점이 정말 멋져요 🌱\n\n"
+                    "완벽하지 않아도 괜찮아요. 기록을 남겼다는 사실 자체가 이미 성장입니다."
                 )
-            else:  # 객관적인 단호박
-                msg = (
-                    "기록은 했고, 이제 실행만 남았어요.\n\n"
-                    "완료 체크가 비어 있다면 ‘했다’고 말할 근거가 없습니다.\n"
-                    "내일은 목표를 더 작게 쪼개서 **반드시 체크**로 끝내세요."
+            else:
+                feedback = (
+                    "기록은 했습니다.\n\n"
+                    "하지만 완료 체크가 없다면 실행으로 보지 않습니다.\n"
+                    "내일은 목표를 더 작게 설정하고 반드시 완료하세요."
                 )
 
-            st.success("AI 피드백(샘플)")
-            st.write(msg)
+            st.success("AI 피드백 (샘플)")
+            st.write(feedback)
 
 # ----------------------
-# 하단: 간단 요약
+# 하단 요약
 # ----------------------
 st.divider()
 
 total_days = calendar.monthrange(year, month)[1]
+record_count = sum(1 for v in st.session_state.records.values() if v.get("text"))
 done_count = sum(1 for v in st.session_state.records.values() if v.get("done"))
-record_count = sum(1 for v in st.session_state.records.values() if v.get("text", "").strip() != "")
 
 st.caption(
-    f"2월 기록 현황: 총 {total_days}일 중 기록 {record_count}일 / 완료 {done_count}일"
+    f"📊 2월 기록 현황 — 기록 {record_count}일 / 완료 {done_count}일 (총 {total_days}일)"
 )

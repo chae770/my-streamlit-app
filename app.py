@@ -1,4 +1,4 @@
-from streamlit as st
+import streamlit as st
 # =========================
 # Sticker Reward System 🎖
 # =========================
@@ -34,4 +34,5 @@ if st.session_state.stickers:
         st.write(f"- {s['date']} : {s['name']}")
 else:
     st.info("아직 받은 스티커가 없어요. 3일 연속 올클리어하면 지급됩니다 😈")
+
 
